@@ -12,7 +12,6 @@ var (
 	expectedLibvirtImage              = "docker.io/openshift/origin-libvirt-machine-controllers:v4.0.0"
 	expectedOpenstackImage            = "docker.io/openshift/origin-openstack-machine-controllers:v4.0.0"
 	expectedMachineAPIOperatorImage   = "docker.io/openshift/origin-machine-api-operator:v4.0.0"
-	expectedKubeRBACProxyImage        = "docker.io/openshift/origin-kube-rbac-proxy:v4.0.0"
 	expectedBareMetalImage            = "quay.io/openshift/origin-baremetal-machine-controllers:v4.0.0"
 	expectedAzureImage                = "quay.io/openshift/origin-azure-machine-controllers:v4.0.0"
 	expectedGCPImage                  = "quay.io/openshift/origin-gcp-machine-controllers:v4.0.0"
@@ -280,21 +279,6 @@ func TestGetMachineAPIOperatorFromImages(t *testing.T) {
 	}
 	if res != expectedMachineAPIOperatorImage {
 		t.Errorf("failed getMachineAPIOperatorFromImages. Expected: %s, got: %s", expectedMachineAPIOperatorImage, res)
-	}
-}
-
-func TestGetKubeRBACProxyFromImages(t *testing.T) {
-	img, err := getImagesFromJSONFile(imagesJSONFile)
-	if err != nil {
-		t.Errorf("failed getImagesFromJSONFile, %v", err)
-	}
-
-	res, err := getKubeRBACProxyFromImages(*img)
-	if err != nil {
-		t.Errorf("failed getKubeRBACProxyFromImages : %v", err)
-	}
-	if res != expectedKubeRBACProxyImage {
-		t.Errorf("failed getKubeRBACProxyFromImages. Expected: %s, got: %s", expectedKubeRBACProxyImage, res)
 	}
 }
 

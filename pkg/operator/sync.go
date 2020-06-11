@@ -21,17 +21,13 @@ import (
 )
 
 const (
-	deploymentRolloutPollInterval       = time.Second
-	deploymentRolloutTimeout            = 5 * time.Minute
-	deploymentMinimumAvailabilityTime   = 3 * time.Minute
-	daemonsetRolloutPollInterval        = time.Second
-	daemonsetRolloutTimeout             = 5 * time.Minute
-	machineAPITerminationHandler        = "machine-api-termination-handler"
-	machineExposeMetricsPort            = 8441
-	machineSetExposeMetricsPort         = 8442
-	machineHealthCheckExposeMetricsPort = 8444
-	kubeRBACConfigName                  = "config"
-	certStoreName                       = "machine-api-controllers-tls"
+	deploymentRolloutPollInterval     = time.Second
+	deploymentRolloutTimeout          = 5 * time.Minute
+	deploymentMinimumAvailabilityTime = 3 * time.Minute
+	daemonsetRolloutPollInterval      = time.Second
+	daemonsetRolloutTimeout           = 5 * time.Minute
+	machineAPITerminationHandler      = "machine-api-termination-handler"
+	certStoreName                     = "machine-api-controllers-tls"
 )
 
 func (optr *Operator) syncAll(config *OperatorConfig) error {
@@ -269,7 +265,6 @@ func newDeployment(config *OperatorConfig, features map[string]bool) *appsv1.Dep
 
 func newPodTemplateSpec(config *OperatorConfig, features map[string]bool) *corev1.PodTemplateSpec {
 	containers := newContainers(config, features)
-	proxyContainers := newKubeProxyContainers(config.Controllers.KubeRBACProxy)
 	tolerations := []corev1.Toleration{
 		{
 			Key:    "node-role.kubernetes.io/master",
@@ -296,21 +291,10 @@ func newPodTemplateSpec(config *OperatorConfig, features map[string]bool) *corev
 	var readOnly int32 = 420
 	volumes := []corev1.Volume{
 		{
-			Name: kubeRBACConfigName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "kube-rbac-proxy",
-					},
-					DefaultMode: pointer.Int32Ptr(readOnly),
-				},
-			},
-		},
-		{
 			Name: certStoreName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  "machine-api-controllers-tls",
+					SecretName:  certStoreName,
 					DefaultMode: pointer.Int32Ptr(readOnly),
 				},
 			},
@@ -344,7 +328,7 @@ func newPodTemplateSpec(config *OperatorConfig, features map[string]bool) *corev
 			},
 		},
 		Spec: corev1.PodSpec{
-			Containers:         append(containers, proxyContainers...),
+			Containers:         containers,
 			PriorityClassName:  "system-node-critical",
 			NodeSelector:       map[string]string{"node-role.kubernetes.io/master": ""},
 			ServiceAccountName: "machine-api-controllers",
@@ -379,11 +363,20 @@ func newContainers(config *OperatorConfig, features map[string]bool) []corev1.Co
 					Name:          "webhook-server",
 					ContainerPort: 8443,
 				},
+				{
+					Name:          "machineset-mtrc",
+					ContainerPort: metrics.DefaultMachineSetMetricsPort,
+				},
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					MountPath: "/etc/machine-api-operator/tls",
 					Name:      "cert",
+					ReadOnly:  true,
+				},
+				{
+					MountPath: "/tmp/k8s-metrics-server/serving-certs",
+					Name:      certStoreName,
 					ReadOnly:  true,
 				},
 			},
@@ -404,6 +397,19 @@ func newContainers(config *OperatorConfig, features map[string]bool) []corev1.Co
 					},
 				},
 			},
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          "machine-mtrc",
+					ContainerPort: metrics.DefaultMachineMetricsPort,
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					MountPath: "/tmp/k8s-metrics-server/serving-certs",
+					Name:      certStoreName,
+					ReadOnly:  true,
+				},
+			},
 		},
 		{
 			Name:      "nodelink-controller",
@@ -418,58 +424,22 @@ func newContainers(config *OperatorConfig, features map[string]bool) []corev1.Co
 			Command:   []string{"/machine-healthcheck"},
 			Args:      args,
 			Resources: resources,
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          "mhc-mtrc",
+					ContainerPort: metrics.DefaultHealthCheckMetricsPort,
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					MountPath: "/tmp/k8s-metrics-server/serving-certs",
+					Name:      certStoreName,
+					ReadOnly:  true,
+				},
+			},
 		},
 	}
 	return containers
-}
-
-func newKubeProxyContainers(image string) []corev1.Container {
-	return []corev1.Container{
-		newKubeProxyContainer(image, "machineset-mtrc", metrics.DefaultMachineSetMetricsAddress, machineSetExposeMetricsPort),
-		newKubeProxyContainer(image, "machine-mtrc", metrics.DefaultMachineMetricsAddress, machineExposeMetricsPort),
-		newKubeProxyContainer(image, "mhc-mtrc", metrics.DefaultHealthCheckMetricsAddress, machineHealthCheckExposeMetricsPort),
-	}
-}
-
-func newKubeProxyContainer(image, portName, upstreamPort string, exposePort int32) corev1.Container {
-	configMountPath := "/etc/kube-rbac-proxy"
-	tlsCertMountPath := "/etc/tls/private"
-	resources := corev1.ResourceRequirements{
-		Requests: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceMemory: resource.MustParse("20Mi"),
-			corev1.ResourceCPU:    resource.MustParse("10m"),
-		},
-	}
-	args := []string{
-		fmt.Sprintf("--secure-listen-address=0.0.0.0:%d", exposePort),
-		fmt.Sprintf("--upstream=http://localhost%s", upstreamPort),
-		fmt.Sprintf("--config-file=%s/config-file.yaml", configMountPath),
-		fmt.Sprintf("--tls-cert-file=%s/tls.crt", tlsCertMountPath),
-		fmt.Sprintf("--tls-private-key-file=%s/tls.key", tlsCertMountPath),
-		"--logtostderr=true",
-		"--v=10",
-	}
-	ports := []corev1.ContainerPort{{
-		Name:          portName,
-		ContainerPort: exposePort,
-	}}
-
-	return corev1.Container{
-		Name:      fmt.Sprintf("kube-rbac-proxy-%s", portName),
-		Image:     image,
-		Args:      args,
-		Resources: resources,
-		Ports:     ports,
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      kubeRBACConfigName,
-				MountPath: configMountPath,
-			},
-			{
-				Name:      certStoreName,
-				MountPath: tlsCertMountPath,
-			}},
-	}
 }
 
 func newTerminationDaemonSet(config *OperatorConfig) *appsv1.DaemonSet {

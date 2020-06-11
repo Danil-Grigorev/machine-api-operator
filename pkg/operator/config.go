@@ -30,7 +30,6 @@ type Controllers struct {
 	MachineSet         string
 	NodeLink           string
 	MachineHealthCheck string
-	KubeRBACProxy      string
 	TerminationHandler string
 }
 
@@ -54,7 +53,6 @@ type Images struct {
 	ClusterAPIControllerGCP       string `json:"clusterAPIControllerGCP"`
 	ClusterAPIControllerOvirt     string `json:"clusterAPIControllerOvirt"`
 	ClusterAPIControllerVSphere   string `json:"clusterAPIControllerVSphere"`
-	KubeRBACProxy                 string `json:"kubeRBACProxy"`
 	// Images required for the metal3 pod
 	BaremetalOperator            string `json:"baremetalOperator"`
 	BaremetalIronic              string `json:"baremetalIronic"`
@@ -141,11 +139,4 @@ func getMachineAPIOperatorFromImages(images Images) (string, error) {
 		return "", fmt.Errorf("failed gettingMachineAPIOperator image. It is empty")
 	}
 	return images.MachineAPIOperator, nil
-}
-
-func getKubeRBACProxyFromImages(images Images) (string, error) {
-	if images.KubeRBACProxy == "" {
-		return "", fmt.Errorf("failed getting kubeRBACProxy image. It is empty")
-	}
-	return images.KubeRBACProxy, nil
 }

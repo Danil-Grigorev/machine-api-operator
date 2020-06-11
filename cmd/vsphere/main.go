@@ -37,6 +37,7 @@ func main() {
 
 	opts := manager.Options{
 		MetricsBindAddress: *metricsAddress,
+		MetricsSecure:      true,
 	}
 	if *watchNamespace != "" {
 		opts.Namespace = *watchNamespace

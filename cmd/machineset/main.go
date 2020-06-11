@@ -70,6 +70,7 @@ func main() {
 	syncPeriod := 10 * time.Minute
 	opts := manager.Options{
 		MetricsBindAddress: *metricsAddress,
+		MetricsSecure:      true,
 		SyncPeriod:         &syncPeriod,
 		Namespace:          *watchNamespace,
 	}

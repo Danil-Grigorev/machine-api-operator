@@ -294,11 +294,6 @@ func (optr *Operator) maoConfigFromInfrastructure() (*OperatorConfig, error) {
 		return nil, err
 	}
 
-	kubeRBACProxy, err := getKubeRBACProxyFromImages(*images)
-	if err != nil {
-		return nil, err
-	}
-
 	return &OperatorConfig{
 		TargetNamespace: optr.namespace,
 		Controllers: Controllers{
@@ -306,7 +301,6 @@ func (optr *Operator) maoConfigFromInfrastructure() (*OperatorConfig, error) {
 			MachineSet:         machineAPIOperatorImage,
 			NodeLink:           machineAPIOperatorImage,
 			MachineHealthCheck: machineAPIOperatorImage,
-			KubeRBACProxy:      kubeRBACProxy,
 			TerminationHandler: terminationHandlerImage,
 		},
 		BaremetalControllers: baremetalControllers,

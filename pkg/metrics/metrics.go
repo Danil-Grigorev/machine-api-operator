@@ -11,9 +11,12 @@ import (
 )
 
 const (
-	DefaultHealthCheckMetricsAddress = ":8083"
+	DefaultHealthCheckMetricsAddress = ":8084"
 	DefaultMachineSetMetricsAddress  = ":8082"
 	DefaultMachineMetricsAddress     = ":8081"
+	DefaultHealthCheckMetricsPort    = 8084
+	DefaultMachineSetMetricsPort     = 8082
+	DefaultMachineMetricsPort        = 8081
 )
 
 var (

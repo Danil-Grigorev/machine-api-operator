@@ -34,13 +34,13 @@ spec:
   ports:
   - name: machine-mtrc
     targetPort: machine-mtrc
-    port: 8441
+    port: 8081
   - name: machineset-mtrc
     targetPort: machineset-mtrc
-    port: 8442
+    port: 8082
   - name: mhc-mtrc
     targetPort: mhc-mtrc
-    port: 8444
+    port: 8084
   selector:
     k8s-app: controller
   sessionAffinity: None
